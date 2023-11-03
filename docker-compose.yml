@@ -1,0 +1,63 @@
+version: '3.5'
+services:
+  nginx:
+    image: 'nginx:1.21.6-alpine'
+    container_name: '${APP_NAME}-nginx'
+    working_dir: /var/www/html
+    restart: unless-stopped
+    volumes:
+      - './:/var/www/html'
+      - './docker/development/nginx/default.conf:/etc/nginx/conf.d/default.conf'
+      - './docker/development/nginx/nginx.conf:/etc/nginx/nginx.conf'
+    depends_on:
+      - database
+    ports:
+      - '80:80'
+      - '443:443'
+    links:
+      - database
+      - app
+    networks:
+      - testAssignment
+  app:
+    container_name: ${APP_NAME}-php
+    build:
+        args:
+            user: ${APP_NAME}
+            uid: 1000
+        context: ./docker/development/php
+        dockerfile: php.docker
+    environment:
+        APP_NAME: ${APP_NAME}
+        XDEBUG_MODE: debug
+        XDEBUG_CONFIG: client_host=host.docker.internal client_port=9001
+    volumes:
+        - ./:/var/www/html
+        - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /var/www/html
+    links:
+        - database
+    depends_on:
+        - database
+    networks:
+        - testAssignment
+  database:
+    image: mysql:8
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password --sql_mode=''
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - testAssignment
+volumes:
+  database:
+    driver: local
+networks:
+  testAssignment:
+    driver: bridge
